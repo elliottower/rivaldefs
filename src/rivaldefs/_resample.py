@@ -201,9 +201,10 @@ def _run(patterns: np.ndarray, counts: np.ndarray, replicate_counts: Iterator[np
 
 
 def _resolve(rp: RulePair) -> RulePair:
-    wa = factor_balanced(rp.rule_a) if rp.w_a is None else rp.w_a
-    wb = factor_balanced(rp.rule_b) if rp.w_b is None else rp.w_b
-    return RulePair(rp.rule_a, rp.rule_b, wa, wb, rp.within)
+    wa = factor_balanced(rp.rule_a) if rp.w_a is None else np.asarray(rp.w_a, dtype=float)
+    wb = factor_balanced(rp.rule_b) if rp.w_b is None else np.asarray(rp.w_b, dtype=float)
+    return RulePair(rp.rule_a, rp.rule_b, [float(v) for v in wa], [float(v) for v in wb],
+                    rp.within)
 
 
 def _pair_from_grid(g: Grid, a: int, b: int) -> PairTable:
