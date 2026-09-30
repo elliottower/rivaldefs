@@ -15,9 +15,16 @@ recorded in a committed file are used here; each fixture names that file and its
   results/recovery.json, keys meagher2014_strict, meagher2014_reading, meagher2014_permissive,
   status "unique" (commit afd4ca6). Which of the three was the registration's "delirium table"
   is not recorded, so all three are checked.
+- Mana et al. 2026, J Parkinsons Dis (PMC13435195), the Lvl.II (1) against Lvl.II (2) pair from
+  the authors' shipped data (concords.rda, github.com/josefmana/demcrit): 5 positive under both,
+  15 under the FAQ-total rule only, 2 under the FAQ-9 rule only, 171 under neither, rows the
+  FAQ-total rule. Cells as recorded in criteria-direction
+  papers/paper2_jpd_parkinsons_letter/experiments/EXPT01_mana_pdd_direction/PREREG.md,
+  Foreknowledge, with kappa/kappa_max = 0.68 (commit 9d9ac65).
 
-Daghi 2026 (no joint table recoverable: status "infeasible") and the Mana pair (not named) are not
-pinned to recorded cells and are not included.
+Daghi 2026 is not included. Its article prints no cross-classification; the cells reconstructed
+from its sensitivity and specificity were confirmed by the corresponding author and are
+unpublished.
 """
 from __future__ import annotations
 
@@ -37,6 +44,7 @@ PUBLISHED = [
     ("meagher2014 DSM-IV vs DSM-5 strict", 155, 355, 3, 255),
     ("meagher2014 DSM-5 strict vs permissive", 158, 0, 308, 302),
     ("meagher2014 DSM-IV vs DSM-5 permissive", 455, 55, 11, 247),
+    ("mana2026 Lvl.II (1) vs Lvl.II (2)", 5, 15, 2, 171),
 ]
 
 
@@ -67,3 +75,9 @@ def test_the_published_kappas_are_reproduced():
     for source, *cells in PUBLISHED:
         if source in printed:
             assert round(float(_exact(*cells)[1]), 2) == printed[source], source
+
+
+def test_the_recorded_mana_ratio_is_reproduced():
+    # The Mana record gives kappa/kappa_max, not kappa.
+    cells = {s: c for s, *c in PUBLISHED}["mana2026 Lvl.II (1) vs Lvl.II (2)"]
+    assert round(float(_exact(*cells)[0]), 2) == 0.68
