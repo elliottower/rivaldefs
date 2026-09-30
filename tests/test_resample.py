@@ -178,3 +178,38 @@ def test_survey_replicate_intervals_are_the_percentiles_of_the_replicate_estimat
     assert res.h.estimate == pytest.approx(pair_table(x[:, 0], x[:, 1], w).h)
     assert (res.h.lo, res.h.hi) == pytest.approx(tuple(np.quantile(hs, [0.025, 0.975])))
     assert (res.c.lo, res.c.hi) == pytest.approx(tuple(np.quantile(cs, [0.025, 0.975])))
+
+
+def test_the_bootstrap_sd_matches_an_explicit_unit_resampling_sd(rng: np.random.Generator):
+    n, reps = 400, 3000
+    z = rng.normal(size=n)
+    cols = [z + rng.normal(scale=s, size=n) > t for s, t in ((0.3, 0.3), (0.6, 0.5), (0.9, 0.2))]
+    cols += [-0.5 * z + rng.normal(size=n) > t for t in (0.0, 0.4)]
+    x = np.column_stack(cols).astype(int)
+    a = Rule("A", (0, 1, 2), ((0,), (1,), (2,)))
+    b = Rule("B", (3, 4), ((0,), (1,)))
+    res = bootstrap(x, pairs=[(1, 3)], rule_pairs=[RulePair(a, b)], n_boot=reps, rng=rng)
+    unit = {"h": [], "delta": [], "r": [], "s": []}
+    for _ in range(reps):
+        idx = rng.integers(0, n, n)
+        g = grid(x[idx])
+        unit["h"].append(g.h[1, 3])
+        c = compare_rules(g, a, b)
+        unit["delta"].append(c.delta)
+        unit["r"].append(c.r)
+        unit["s"].append(c.s)
+    got = {"h": res.pairs[0].h.sd, "delta": res.rule_pairs[0].delta.sd,
+           "r": res.rule_pairs[0].r_ungated.sd, "s": res.rule_pairs[0].s.sd}
+    for name, sd in got.items():
+        u = np.array(unit[name], dtype=float)
+        u = u[~np.isnan(u)]
+        # an SD from 3,000 replicates has relative error about 1/sqrt(2 * 3000) = 1.3%, so the
+        # two estimates agree within 10% unless they target different distributions.
+        assert sd == pytest.approx(u.std(ddof=1), rel=0.10), name
+
+
+def test_the_sd_is_withheld_with_the_interval():
+    s = summarize(0.1, np.array([0.1] * 80 + [math.nan] * 20))
+    assert not s.reported and math.isnan(s.sd)
+    s = summarize(0.1, np.array([0.0, 0.2, 0.4]))
+    assert s.sd == pytest.approx(0.2)

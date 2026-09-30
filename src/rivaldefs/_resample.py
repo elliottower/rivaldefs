@@ -38,7 +38,9 @@ class Interval:
     """A point estimate with a percentile interval over replicates.
 
     Replicates where the quantity is undefined are excluded. The interval is reported only when
-    at least 90% of replicates are defined; `fraction_undefined` is always given.
+    at least 90% of replicates are defined; `fraction_undefined` is always given. `sd` is the
+    standard deviation (ddof = 1) of the defined replicates, the bootstrap or replicate-weight
+    standard error; it is NaN whenever the interval is not reported.
     """
 
     estimate: float
@@ -46,6 +48,7 @@ class Interval:
     hi: float
     fraction_undefined: float
     reported: bool
+    sd: float = math.nan
 
 
 def summarize(estimate: float, replicates: np.ndarray, level: float = 0.95,
@@ -59,8 +62,10 @@ def summarize(estimate: float, replicates: np.ndarray, level: float = 0.95,
     if reps.size == 0 or ok.mean() < min_defined:
         return Interval(estimate, math.nan, math.nan, frac_undef, False)
     alpha = (1.0 - level) / 2
-    lo, hi = np.quantile(reps[ok], [alpha, 1.0 - alpha])
-    return Interval(estimate, float(lo), float(hi), frac_undef, True)
+    defined = reps[ok]
+    lo, hi = np.quantile(defined, [alpha, 1.0 - alpha])
+    sd = float(np.std(defined, ddof=1)) if defined.size > 1 else math.nan
+    return Interval(estimate, float(lo), float(hi), frac_undef, True, sd)
 
 
 @dataclass(frozen=True)

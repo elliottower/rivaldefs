@@ -10,7 +10,7 @@ import numpy as np
 import pytest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / "src"))
-from rivaldefs import grid, ladder, pair_table, scale_h
+from rivaldefs import gram, grid, grid_from_gram, ladder, pair_table, scale_h
 
 
 def _random_labels(rng: np.random.Generator, n: int, k: int) -> np.ndarray:
@@ -94,3 +94,20 @@ def test_weighted_grid_equals_the_expanded_grid(rng: np.random.Generator):
     g_e = grid(np.repeat(x, w, axis=0))
     assert np.allclose(np.nan_to_num(g_w.h, nan=9), np.nan_to_num(g_e.h, nan=9))
     assert np.allclose(g_w.d, g_e.d)
+
+
+def test_the_public_gram_grid_equals_the_label_grid_and_takes_probabilities(
+        rng: np.random.Generator):
+    x = _random_labels(rng, 300, 4)
+    n11, n = gram(x.astype(np.uint8))
+    g1, g2 = grid(x), grid_from_gram(n11, n)
+    g3 = grid_from_gram(n11 / n, 1.0)             # population probabilities, N = 1
+    for name in ("h", "c", "kappa", "nodf", "e0", "m"):
+        a, b = getattr(g1, name), getattr(g2, name)
+        assert np.allclose(np.nan_to_num(a, nan=9), np.nan_to_num(b, nan=9)), name
+    for name in ("h", "c", "kappa", "d"):
+        assert np.allclose(np.nan_to_num(getattr(g1, name), nan=9),
+                           np.nan_to_num(getattr(g3, name), nan=9)), name
+    assert (g1.orientation == g3.orientation).all()
+    with pytest.raises(ValueError):
+        grid_from_gram(np.array([[1.0, 2.0], [0.0, 3.0]]), 5.0)

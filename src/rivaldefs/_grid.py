@@ -51,6 +51,14 @@ class Grid:
 
 
 def grid_from_gram(n11: np.ndarray, n: float) -> Grid:
+    """The grids from a Gram matrix N11 (labelers x labelers, diagonal = positives, possibly
+    weighted) and the total N. Lets a caller holding population cell counts or probabilities
+    (N = 1) compute every pairwise index without unit-level labels."""
+    n11 = np.asarray(n11, dtype=float)
+    if n11.ndim != 2 or n11.shape[0] != n11.shape[1] or not np.allclose(n11, n11.T):
+        raise ValueError("n11 must be a symmetric labelers x labelers matrix")
+    if not (np.isfinite(n) and n > 0):
+        raise ValueError("n must be finite and positive")
     x = np.diag(n11).astype(float)
     xa = x[:, None]
     yb = x[None, :]

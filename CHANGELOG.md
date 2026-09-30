@@ -25,3 +25,6 @@ OSF https://osf.io/bpw6e/).
   operating-characteristic records, probabilities, indices, levels and replicate columns are
   refused.
 - Randomized tests are reproducible from the seed printed on failure.
+- `Interval.sd`: the bootstrap (or replicate-weight) standard deviation over defined replicates.
+- `gram` and `grid_from_gram` are public, for grids from population cell probabilities.
+- H = κ/κmax checked exactly on five published tables pinned to committed source files.

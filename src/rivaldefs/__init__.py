@@ -15,7 +15,7 @@ from ._direction import (
     qualifying_cells,
     ratio_of,
 )
-from ._grid import Grid, Ladder, grid, ladder, scale_h
+from ._grid import Grid, Ladder, gram, grid, grid_from_gram, ladder, scale_h
 from ._pair import (
     A_SMALLER,
     B_SMALLER,
@@ -81,7 +81,9 @@ __all__ = [
     "delta_bounds",
     "discordance_bounds",
     "factor_balanced",
+    "gram",
     "grid",
+    "grid_from_gram",
     "h_delta_interval",
     "ladder",
     "nesting_label",
