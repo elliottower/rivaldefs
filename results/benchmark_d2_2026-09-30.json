@@ -1,0 +1,37 @@
+{
+  "what": "rivaldefs.bootstrap at the registered D2 size, synthetic labels",
+  "date": "2026-09-30",
+  "rivaldefs_commit": "52cd58d3926bdb943699d348f7a8a42cffb47878",
+  "seed": 20260930,
+  "n_units": 40000,
+  "n_labelers": 188,
+  "rule_sizes": {
+    "sepsis3": 126,
+    "sirs": 18,
+    "qsofa": 36,
+    "angus": 4,
+    "martin": 4
+  },
+  "n_unique_patterns": 9242,
+  "n_labeler_pairs": 10,
+  "n_rule_pairs": 18,
+  "laws": [
+    "independent factor-balanced",
+    "independent reference-weighted",
+    "conditional-distinct-pair"
+  ],
+  "n_boot": 2000,
+  "seconds": 118.7,
+  "seconds_per_replicate": 0.0593,
+  "machine": {
+    "platform": "macOS-26.5-x86_64-i386-64bit-Mach-O",
+    "processor": "i386",
+    "python": "3.13.12",
+    "numpy": "2.5.3",
+    "cpu_count": 12
+  },
+  "check": {
+    "n_replicates": 2000,
+    "all_delta_reported": true
+  }
+}
