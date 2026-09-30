@@ -14,7 +14,15 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from ._rules import INDEPENDENT, Rule, _check_w, d_within, factor_balanced
+from ._rules import (
+    INDEPENDENT,
+    Rule,
+    _check_w,
+    check_columns,
+    d_within,
+    factor_balanced,
+    larger_within,
+)
 
 
 def _completions(units: Sequence[np.typing.ArrayLike]) -> list[np.ndarray]:
@@ -55,6 +63,10 @@ def discordance_bounds(units: Sequence[np.typing.ArrayLike]) -> tuple[np.ndarray
 def count_bounds(units: Sequence[np.typing.ArrayLike], a: int, b: int) -> dict[str, tuple[int, int]]:
     """Bounds on x, y, n10 and n01 for one labeler pair, as sums of per-unit minima and maxima."""
     comps = _completions(units)
+    k = comps[0].shape[1]
+    for i in (a, b):
+        if isinstance(i, bool) or not isinstance(i, (int, np.integer)) or not 0 <= i < k:
+            raise ValueError(f"labeler index {i!r} is outside 0..{k - 1}")
     out = {}
     for name, f in (("x", lambda c: c[:, a]), ("y", lambda c: c[:, b]),
                     ("n10", lambda c: c[:, a] & ~c[:, b]), ("n01", lambda c: ~c[:, a] & c[:, b])):
@@ -77,6 +89,8 @@ def delta_bounds(units: Sequence[np.typing.ArrayLike], rule_a: Rule, rule_b: Rul
                  w_a: Sequence[float] | None = None, w_b: Sequence[float] | None = None,
                  within: str = INDEPENDENT) -> DeltaBounds:
     lo, hi = discordance_bounds(units)
+    check_columns(rule_a, lo.shape[0])
+    check_columns(rule_b, lo.shape[0])
     lo, hi = lo * 100.0, hi * 100.0
     wa = factor_balanced(rule_a) if w_a is None else _check_w(np.asarray(w_a), rule_a)
     wb = factor_balanced(rule_b) if w_b is None else _check_w(np.asarray(w_b), rule_b)
@@ -85,5 +99,5 @@ def delta_bounds(units: Sequence[np.typing.ArrayLike], rule_a: Rule, rule_b: Rul
     ga, gb = rule_a.levels or None, rule_b.levels or None
     dwa = (d_within(lo[np.ix_(ca, ca)], wa, within, ga), d_within(hi[np.ix_(ca, ca)], wa, within, ga))
     dwb = (d_within(lo[np.ix_(cb, cb)], wb, within, gb), d_within(hi[np.ix_(cb, cb)], wb, within, gb))
-    delta = (db[0] - max(dwa[1], dwb[1]), db[1] - max(dwa[0], dwb[0]))
+    delta = (db[0] - larger_within(dwa[1], dwb[1]), db[1] - larger_within(dwa[0], dwb[0]))
     return DeltaBounds(d_between=db, d_within_a=dwa, d_within_b=dwb, delta=delta)

@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import math
 import pathlib
-import random
 import sys
 from fractions import Fraction
 
@@ -63,20 +62,20 @@ def test_orientation_follows_the_smaller_positive_count():
 
 # ------------------------------------------------------------- boundaries
 
-def test_a_labeler_against_itself_has_h_one_and_no_discordance():
+def test_a_labeler_against_itself_has_h_one_and_no_discordance(rng: np.random.Generator):
     for _ in range(200):
-        n = random.randint(2, 500)
-        a = np.array([random.random() < random.random() for _ in range(n)], dtype=int)
+        n = int(rng.integers(2, 500 + 1))
+        a = np.array([rng.random() < rng.random() for _ in range(n)], dtype=int)
         if 0 < a.sum() < n:
             t = pair_table(a, a)
             assert t.h == 1.0 and t.d == 0.0 and t.c == 1.0
 
 
-def test_forced_nesting_empties_the_prohibited_cell_and_gives_h_one():
+def test_forced_nesting_empties_the_prohibited_cell_and_gives_h_one(rng: np.random.Generator):
     for _ in range(200):
-        n = random.randint(3, 400)
-        score = [random.random() for _ in range(n)]
-        lo, hi = sorted(random.random() for _ in range(2))
+        n = int(rng.integers(3, 400 + 1))
+        score = [rng.random() for _ in range(n)]
+        lo, hi = sorted(rng.random() for _ in range(2))
         strict = np.array([s > hi for s in score], dtype=int)
         loose = np.array([s > lo for s in score], dtype=int)
         t = pair_table(strict, loose)
@@ -99,18 +98,18 @@ def test_kappa_is_undefined_when_both_labelings_are_constant():
 
 # ------------------------------------------------------------- identities
 
-def _random_table(n_max: int = 300) -> PairTable:
-    n = random.randint(4, n_max)
-    cut = sorted(random.randint(0, n) for _ in range(3))
+def _random_table(rng: np.random.Generator, n_max: int = 300) -> PairTable:
+    n = int(rng.integers(4, n_max + 1))
+    cut = sorted(int(rng.integers(0, n + 1)) for _ in range(3))
     cells = [cut[0], cut[1] - cut[0], cut[2] - cut[1], n - cut[2]]
-    random.shuffle(cells)
+    rng.shuffle(cells)
     return PairTable(*map(float, cells))
 
 
-def test_h_equals_kappa_over_kappa_max_on_random_tables():
+def test_h_equals_kappa_over_kappa_max_on_random_tables(rng: np.random.Generator):
     checked = 0
     for _ in range(5000):
-        t = _random_table()
+        t = _random_table(rng)
         if math.isnan(t.h) or math.isnan(t.kappa_max) or t.kappa_max == 0:
             continue
         assert t.h == pytest.approx(t.kappa / t.kappa_max, abs=1e-12)
@@ -131,12 +130,12 @@ def _loevinger_brute_force(a: list[int], b: list[int]) -> Fraction | None:
     return 1 - Fraction(errors) / expected
 
 
-def test_h_equals_a_brute_force_loevinger_count():
+def test_h_equals_a_brute_force_loevinger_count(rng: np.random.Generator):
     for _ in range(500):
-        n = random.randint(2, 120)
-        pa, pb = random.random(), random.random()
-        a = [int(random.random() < pa) for _ in range(n)]
-        b = [int(random.random() < pb) for _ in range(n)]
+        n = int(rng.integers(2, 120 + 1))
+        pa, pb = rng.random(), rng.random()
+        a = [int(rng.random() < pa) for _ in range(n)]
+        b = [int(rng.random() < pb) for _ in range(n)]
         ref = _loevinger_brute_force(a, b)
         got = pair_table(np.array(a), np.array(b)).h
         if ref is None:
@@ -145,14 +144,14 @@ def test_h_equals_a_brute_force_loevinger_count():
             assert got == pytest.approx(float(ref), abs=1e-12)
 
 
-def test_permuting_one_labeler_centres_h_on_zero():
+def test_permuting_one_labeler_centres_h_on_zero(rng: np.random.Generator):
     # Under a random permutation with both margins fixed, m is hypergeometric with mean
     # x(N - y)/N = E0, so E[H] = 0 exactly; the mean over many permutations must sit near it.
     a = np.array([1] * 60 + [0] * 340)
     b = np.array([1] * 150 + [0] * 250)
     hs = []
     for _ in range(20000):
-        hs.append(pair_table(a, np.random.permutation(b)).h)
+        hs.append(pair_table(a, rng.permutation(b)).h)
     hs_arr = np.array(hs)
     se = hs_arr.std() / math.sqrt(len(hs_arr))
     assert abs(hs_arr.mean()) < 5 * se
@@ -178,7 +177,7 @@ def test_bad_input_is_refused():
         PairTable(-1, 0, 0, 1)
 
 
-def test_the_delta_interval_matches_the_bootstrap_spread():
+def test_the_delta_interval_matches_the_bootstrap_spread(rng: np.random.Generator):
     # The delta-method SD of H and the SD of H over multinomial resamples of the four cells
     # must agree to within the Monte Carlo error of the latter, on a large table.
     t = PairTable(300, 40, 500, 2160)
@@ -186,7 +185,7 @@ def test_the_delta_interval_matches_the_bootstrap_spread():
     sd_delta = (hi - lo) / (2 * 1.959963984540054)
     p = np.array([t.n11, t.n10, t.n01, t.n00]) / t.n
     hs = []
-    for c in np.random.multinomial(int(t.n), p, size=20000):
+    for c in rng.multinomial(int(t.n), p, size=20000):
         hs.append(PairTable(*map(float, c)).h)
     sd_boot = float(np.std(hs))
     assert sd_delta == pytest.approx(sd_boot, rel=0.05)

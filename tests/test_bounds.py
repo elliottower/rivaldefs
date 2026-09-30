@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import itertools
 import pathlib
-import random
 import sys
 
 import numpy as np
@@ -22,11 +21,11 @@ from rivaldefs import (
 )
 
 
-def _case():
+def _case(rng: np.random.Generator):
     """Units with a few missing binary inputs; each labeler is a rule applied to the inputs."""
-    n = random.randint(4, 7)
+    n = int(rng.integers(4, 7 + 1))
     k_inputs = 3
-    inputs = [[random.choice((0, 1, None)) if random.random() < 0.25 else random.randint(0, 1)
+    inputs = [[(0, 1, None)[int(rng.integers(3))] if rng.random() < 0.25 else int(rng.integers(0, 1 + 1))
                for _ in range(k_inputs)] for _ in range(n)]
     labelers = [
         lambda v: int(v[0] and v[1]),          # A variant 0
@@ -49,9 +48,9 @@ def _case():
     return units, a, b
 
 
-def test_every_completion_lies_inside_the_delta_bounds():
+def test_every_completion_lies_inside_the_delta_bounds(rng: np.random.Generator):
     for _ in range(150):
-        units, a, b = _case()
+        units, a, b = _case(rng)
         for within in ("independent", DISTINCT):
             bd = delta_bounds(units, a, b, within=within)
             for choice in itertools.product(*[range(len(u)) for u in units]):
@@ -61,8 +60,8 @@ def test_every_completion_lies_inside_the_delta_bounds():
                 assert bd.d_between[0] - 1e-9 <= cmp.d_between <= bd.d_between[1] + 1e-9
 
 
-def test_complete_data_bounds_collapse_to_the_point():
-    x = np.random.randint(0, 2, size=(50, 4))
+def test_complete_data_bounds_collapse_to_the_point(rng: np.random.Generator):
+    x = rng.integers(0, 2, size=(50, 4))
     a = Rule("A", (0, 1), ((0,), (1,)))
     b = Rule("B", (2, 3), ((0,), (1,)))
     bd = delta_bounds([row[None, :] for row in x], a, b)
@@ -70,9 +69,9 @@ def test_complete_data_bounds_collapse_to_the_point():
     assert bd.delta[0] == pytest.approx(c.delta) and bd.delta[1] == pytest.approx(c.delta)
 
 
-def test_count_bounds_contain_every_completion():
+def test_count_bounds_contain_every_completion(rng: np.random.Generator):
     for _ in range(100):
-        units, _, _ = _case()
+        units, _, _ = _case(rng)
         cb = count_bounds(units, 0, 2)
         for choice in itertools.product(*[range(len(u)) for u in units]):
             x = np.array([u[c] for u, c in zip(units, choice)])

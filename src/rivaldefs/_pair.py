@@ -17,13 +17,28 @@ B_SMALLER = "b smaller"
 EQUAL = "equal"
 ORIENTATIONS = (A_SMALLER, B_SMALLER, EQUAL)
 
+#: Two prevalences are equal when they differ by at most TIE_RTOL times the total weight N.
+#: TIE_RTOL = 2**20 machine epsilons (about 2.3e-10): it absorbs the rounding of sums of
+#: floating survey weights (0.1 + 0.2 against 0.3), and integer counts, whose differences are
+#: at least 1, are never merged while N < 4e9.
+TIE_RTOL = 2.0**20 * float(np.finfo(float).eps)
 
-def _orientation(x: float, y: float) -> str:
-    if x < y:
-        return A_SMALLER
-    if x > y:
-        return B_SMALLER
-    return EQUAL
+
+def is_tie(x: float, y: float, n: float) -> bool:
+    """Whether two (possibly weighted) positive counts are equal to within TIE_RTOL * n."""
+    return abs(x - y) <= TIE_RTOL * n
+
+
+def _orientation(x: float, y: float, n: float) -> str:
+    if is_tie(x, y, n):
+        return EQUAL
+    return A_SMALLER if x < y else B_SMALLER
+
+
+def check_level(level: float) -> float:
+    if not (isinstance(level, (int, float)) and 0 < level < 1):
+        raise ValueError(f"level must lie strictly between 0 and 1, got {level!r}")
+    return float(level)
 
 
 @dataclass(frozen=True)
@@ -62,13 +77,18 @@ class PairTable:
 
     @property
     def orientation(self) -> str:
-        """'a smaller', 'b smaller' or 'equal' (sample version; ties are 'equal')."""
-        return _orientation(self.x, self.y)
+        """'a smaller', 'b smaller' or 'equal' (sample version; x and y within TIE_RTOL * N are
+        'equal')."""
+        return _orientation(self.x, self.y, self.n)
 
     @property
     def m(self) -> float:
-        """The minority cell: n10 if x < y, n01 if x > y, n10 (= n01) if x = y."""
-        return self.n01 if self.x > self.y else self.n10
+        """The minority cell: n10 if x < y, n01 if x > y, and at a tie (n10 + n01)/2, which
+        equals both to within the tie tolerance."""
+        o = self.orientation
+        if o == EQUAL:
+            return (self.n10 + self.n01) / 2
+        return self.n10 if o == A_SMALLER else self.n01
 
     @property
     def e0(self) -> float:
@@ -111,7 +131,7 @@ class PairTable:
 
         A smaller set with no positives scores 0, the convention of the ecological software.
         """
-        if self.x == self.y:
+        if self.orientation == EQUAL:
             return 0.0
         lo = min(self.x, self.y)
         return 0.0 if lo == 0 else self.n11 / lo
@@ -155,9 +175,11 @@ def _as_binary(v: np.typing.ArrayLike, name: str) -> np.ndarray:
 def h_delta_interval(t: PairTable, level: float = 0.95) -> tuple[float, float] | None:
     """Delta-method interval for H under multinomial sampling of the four cells.
 
-    The registration's secondary interval. Defined only when the orientation is strict and
-    0 < m < E0; returns None otherwise (the orientation-probability condition is the caller's).
+    Low-level and ungated: defined only when the orientation is strict and 0 < m < E0, and None
+    otherwise. The registered secondary interval also needs a modal bootstrap orientation
+    probability of at least 0.95; `bootstrap` applies that gate in `PairResult.h_delta_interval`.
     """
+    check_level(level)
     if t.orientation == EQUAL or not (0 < t.m < t.e0):
         return None
     n = t.n

@@ -39,6 +39,9 @@ class Rule:
     def __post_init__(self) -> None:
         if not self.columns:
             raise ValueError(f"rule {self.name!r} has no implementations")
+        for c in self.columns:
+            if isinstance(c, bool) or not isinstance(c, (int, np.integer)) or c < 0:
+                raise ValueError(f"rule {self.name!r}: column {c!r} is not a non-negative index")
         if self.levels and len(self.levels) != len(self.columns):
             raise ValueError(f"rule {self.name!r}: one level tuple per column is required")
         if self.levels and len({len(t) for t in self.levels}) != 1:
@@ -128,12 +131,33 @@ class RuleComparison:
 
     @property
     def denominator(self) -> float:
-        return max(self.d_within_a, self.d_within_b)
+        return larger_within(self.d_within_a, self.d_within_b)
+
+
+def larger_within(a: float, b: float) -> float:
+    """max of two within-rule terms, NaN when either is undefined (a one-implementation rule
+    under the conditional-distinct-pair law), whichever side it is on."""
+    if math.isnan(a) or math.isnan(b):
+        return math.nan
+    return max(a, b)
+
+
+def check_columns(rule: Rule, k: int) -> None:
+    """Refuse a rule naming a labeler column outside 0..k-1."""
+    for c in rule.columns:
+        if not 0 <= c < k:
+            raise ValueError(f"rule {rule.name!r}: column {c} is outside 0..{k - 1}")
 
 
 def compare_rules(g: Grid, rule_a: Rule, rule_b: Rule, w_a: Sequence[float] | None = None,
                   w_b: Sequence[float] | None = None, within: str = INDEPENDENT) -> RuleComparison:
-    """Delta, R and S for two rules, computed exactly over every variant pair of the grid g."""
+    """Delta, R and S for two rules, computed exactly over every variant pair of the grid g.
+
+    R here is the raw ratio; the registered reporting gate on R is applied by `bootstrap`.
+    """
+    k = g.n11.shape[0]
+    check_columns(rule_a, k)
+    check_columns(rule_b, k)
     wa = factor_balanced(rule_a) if w_a is None else _check_w(np.asarray(w_a), rule_a)
     wb = factor_balanced(rule_b) if w_b is None else _check_w(np.asarray(w_b), rule_b)
     ca, cb = list(rule_a.columns), list(rule_b.columns)
@@ -141,7 +165,7 @@ def compare_rules(g: Grid, rule_a: Rule, rule_b: Rule, w_a: Sequence[float] | No
     db = float(wa @ d[np.ix_(ca, cb)] @ wb)
     dwa = d_within(d[np.ix_(ca, ca)], wa, within, rule_a.levels or None)
     dwb = d_within(d[np.ix_(cb, cb)], wb, within, rule_b.levels or None)
-    den = max(dwa, dwb)
+    den = larger_within(dwa, dwb)
     r = math.nan if not den > 0 else db / den
     joint = np.outer(wa, wb)
     orient = g.orientation[np.ix_(ca, cb)]

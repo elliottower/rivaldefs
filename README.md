@@ -92,10 +92,21 @@ res.rule_pairs[0].delta
   participant bootstrap, from pattern counts) and recomputes every labeler, orientation, H and
   rule comparison per replicate. `replicate_weights` does the same from survey replicate weights.
   A replicate where H or R is undefined is excluded; an interval is reported only when at least
-  90% of replicates are defined, and the fraction undefined is always returned.
+  90% of replicates are defined, and the fraction undefined is always returned. The result
+  objects apply the registered gates: `PairResult.h_delta_interval` (the delta-method interval)
+  is None unless the modal orientation has bootstrap probability ≥ 0.95 and 0 < m < E0, and
+  `RulePairResult.r` is withheld (NaN, `reported=False`) unless the lower percentile of R's
+  denominator exceeds 0.5 percentage points. The ungated values sit in
+  `h_delta_interval_ungated` and `r_ungated`, for diagnostics.
+- **Ties and undefined terms.** Two positive counts are equal when they differ by at most
+  `TIE_RTOL` × N (2^20 machine epsilons), so floating survey weights that sum to the same
+  prevalence tie; integer counts never merge. Under the conditional-distinct-pair law a rule
+  with one implementation has no within term, and Δ and R are then NaN whichever side it is on.
 - **Orientation rule.** `qualifying_cells` reads a simulation's operating characteristics by
   E0 band × prevalence-ratio band; `orientation_status` marks a real pair resolved when its
-  cells qualify and its modal orientation has bootstrap probability ≥ 0.95.
+  cells qualify and its modal orientation has bootstrap probability ≥ 0.95. A pair with E0 = 0
+  (a prevalence of 0 or 1) is never resolved, and malformed records or probabilities are
+  refused rather than read.
 - **Missing inputs.** `delta_bounds` gives conservative outer bounds on Δ from each unit's
   possible completions.
 
@@ -107,8 +118,11 @@ make test
 
 The tests check exact values on hand-worked tables, H against an independent count of
 Guttman errors, H = κ/κmax on random tables, the invariance of Δ, R and S to duplicated
-implementations, the equivalence of the pattern-count and unit bootstrap, and that every
-completion of a small table with missing inputs falls inside the bounds.
+implementations, the equivalence of the pattern-count and unit bootstrap (for H, Δ, R and S),
+survey replicate intervals against a hand computation, the registered gates on both sides of
+their thresholds, and that every completion of a small table with missing inputs falls inside
+the bounds. Randomized tests draw a new seed each run and print it when they fail; replay one
+with `RIVALDEFS_TEST_SEED=<seed> make test`.
 
 ## License
 

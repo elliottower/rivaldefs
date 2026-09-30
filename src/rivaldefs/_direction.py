@@ -13,6 +13,7 @@ import math
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 
+ORIENTATIONS = ("a smaller", "b smaller", "equal")
 E0_EDGES: tuple[float, ...] = (5.0, 10.0, 20.0, 50.0, 100.0)
 RATIO_EDGES: tuple[float, ...] = (1.1, 1.5, 2.0)
 FAMILIES: tuple[str, ...] = ("G1", "G2")
@@ -72,6 +73,17 @@ class OCRecord:
     coverage: float
     orientation_error: float | None
 
+    def __post_init__(self) -> None:
+        if not (math.isfinite(self.e0) and self.e0 >= 0):
+            raise ValueError(f"OCRecord: e0 must be finite and >= 0, got {self.e0!r}")
+        if math.isnan(self.ratio) or self.ratio < 1:
+            raise ValueError(f"OCRecord: ratio must be >= 1, got {self.ratio!r}")
+        if not (math.isfinite(self.coverage) and 0 <= self.coverage <= 1):
+            raise ValueError(f"OCRecord: coverage must lie in [0, 1], got {self.coverage!r}")
+        err = self.orientation_error
+        if err is not None and not (math.isfinite(err) and 0 <= err <= 1):
+            raise ValueError(f"OCRecord: orientation error must lie in [0, 1], got {err!r}")
+
 
 def qualifying_cells(records: Iterable[OCRecord], min_coverage: float = MIN_COVERAGE,
                      max_error: float = MAX_ORIENTATION_ERROR,
@@ -79,6 +91,8 @@ def qualifying_cells(records: Iterable[OCRecord], min_coverage: float = MIN_COVE
     worst_cov: dict[tuple[tuple[int, int], str], float] = {}
     worst_err: dict[tuple[tuple[int, int], str], float] = {}
     for r in records:
+        if not isinstance(r, OCRecord):
+            raise TypeError(f"expected OCRecord, got {type(r).__name__}")
         if r.family not in families:
             raise ValueError(f"unknown generator family {r.family!r}")
         key = (cell(r.e0, r.ratio), r.family)
@@ -99,13 +113,31 @@ def orientation_status(e0: float, ratio: float, orientation_probabilities: dict[
                        min_probability: float = MIN_MODAL_PROBABILITY,
                        margin: float = EDGE_MARGIN) -> tuple[str, str]:
     """('resolved' or 'not resolved', the modal orientation) for a real pair, from its plug-in
-    E0 and ratio and its bootstrap orientation probabilities."""
-    modal = max(orientation_probabilities, key=lambda o: orientation_probabilities[o])
-    if math.isnan(e0):
+    E0 and ratio and its bootstrap orientation probabilities.
+
+    A pair with E0 undefined or 0 (a prevalence of 0 or 1: H is undefined) is never resolved.
+    """
+    probs = check_orientation_probabilities(orientation_probabilities)
+    modal = max(probs, key=lambda o: probs[o])
+    if not (math.isfinite(e0) and e0 > 0):
         return NOT_RESOLVED, modal
+    if math.isnan(ratio) or ratio < 1:
+        raise ValueError(f"ratio must be >= 1, got {ratio!r}")
     in_cells = all(c in qualifying for c in cells_for(e0, ratio, margin))
-    ok = in_cells and orientation_probabilities[modal] >= min_probability
+    ok = in_cells and probs[modal] >= min_probability
     return (RESOLVED if ok else NOT_RESOLVED), modal
+
+
+def check_orientation_probabilities(p: dict[str, float]) -> dict[str, float]:
+    """Refuse anything but a probability for each of the three orientations, summing to 1."""
+    if set(p) != set(ORIENTATIONS):
+        raise ValueError(f"orientation probabilities need exactly the keys {ORIENTATIONS}")
+    for k, v in p.items():
+        if not (math.isfinite(v) and 0 <= v <= 1):
+            raise ValueError(f"orientation probability {k!r} must lie in [0, 1], got {v!r}")
+    if not math.isclose(sum(p.values()), 1.0, abs_tol=1e-9):
+        raise ValueError("orientation probabilities must sum to 1")
+    return dict(p)
 
 
 def nesting_label(h: float, cut: float = 0.80) -> str:

@@ -9,7 +9,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from ._pair import A_SMALLER, B_SMALLER, EQUAL
+from ._pair import A_SMALLER, B_SMALLER, EQUAL, TIE_RTOL
 
 
 def as_label_matrix(labels: np.typing.ArrayLike) -> np.ndarray:
@@ -59,18 +59,21 @@ def grid_from_gram(n11: np.ndarray, n: float) -> Grid:
     n00 = n - xa - yb + n11
     lo = np.minimum(xa, yb)
     hi = np.maximum(xa, yb)
-    m = np.where(xa > yb, n01, n10)
+    tie = np.abs(xa - yb) <= TIE_RTOL * n
+    a_smaller = ~tie & (xa < yb)
+    b_smaller = ~tie & (xa > yb)
+    m = np.where(tie, (n10 + n01) / 2, np.where(b_smaller, n01, n10))
     e0 = lo * (n - hi) / n
     with np.errstate(divide="ignore", invalid="ignore"):
         h = np.where(e0 > 0, 1.0 - m / e0, np.nan)
         c = np.where(lo > 0, n11 / lo, np.nan)
         kden = xa * (n - yb) + yb * (n - xa)
         kappa = np.where(kden > 0, 2 * (n11 * n00 - n10 * n01) / kden, np.nan)
-        nodf = np.where((xa == yb) | (lo == 0), 0.0, n11 / np.where(lo > 0, lo, 1))
+        nodf = np.where(tie | (lo == 0), 0.0, n11 / np.where(lo > 0, lo, 1))
     d = (n10 + n01) / n
     orient = np.full(n11.shape, EQUAL, dtype=object)
-    orient[xa < yb] = A_SMALLER
-    orient[xa > yb] = B_SMALLER
+    orient[a_smaller] = A_SMALLER
+    orient[b_smaller] = B_SMALLER
     return Grid(n=n, positives=x, n11=n11, h=h, c=c, kappa=kappa, d=d, nodf=nodf,
                 orientation=orient, m=m, e0=e0)
 

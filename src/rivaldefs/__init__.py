@@ -16,7 +16,15 @@ from ._direction import (
     ratio_of,
 )
 from ._grid import Grid, Ladder, grid, ladder, scale_h
-from ._pair import A_SMALLER, B_SMALLER, EQUAL, PairTable, h_delta_interval, pair_table
+from ._pair import (
+    A_SMALLER,
+    B_SMALLER,
+    EQUAL,
+    TIE_RTOL,
+    PairTable,
+    h_delta_interval,
+    pair_table,
+)
 from ._resample import (
     Interval,
     PairResult,
@@ -50,6 +58,7 @@ __all__ = [
     "NOT_RESOLVED",
     "RATIO_EDGES",
     "RESOLVED",
+    "TIE_RTOL",
     "DeltaBounds",
     "Grid",
     "Interval",

@@ -17,3 +17,11 @@ OSF https://osf.io/bpw6e/).
   simulation's operating characteristics.
 - `delta_bounds`, `discordance_bounds`, `count_bounds`: conservative outer bounds for missing
   inputs.
+- Result objects apply the registered gates: the delta-method H interval needs a modal
+  orientation probability ≥ 0.95, and R is withheld below the denominator threshold; ungated
+  values are kept under `*_ungated`.
+- Ties of weighted prevalences within `TIE_RTOL` × N; symmetric NaN when a conditional-distinct
+  within term is undefined; a prevalence-degenerate pair is never resolved; malformed
+  operating-characteristic records, probabilities, indices, levels and replicate columns are
+  refused.
+- Randomized tests are reproducible from the seed printed on failure.

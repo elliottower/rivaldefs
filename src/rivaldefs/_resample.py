@@ -18,11 +18,19 @@ from dataclasses import dataclass
 import numpy as np
 
 from ._grid import Grid, _check_weights, as_label_matrix, grid_from_gram
-from ._pair import A_SMALLER, B_SMALLER, EQUAL, PairTable, h_delta_interval
-from ._rules import INDEPENDENT, Rule, RuleComparison, compare_rules, factor_balanced
+from ._pair import A_SMALLER, B_SMALLER, EQUAL, PairTable, check_level, h_delta_interval
+from ._rules import (
+    INDEPENDENT,
+    Rule,
+    RuleComparison,
+    check_columns,
+    compare_rules,
+    factor_balanced,
+)
 
 MIN_DEFINED = 0.90          # an interval needs at least this share of defined replicates
 R_MIN_DENOMINATOR = 0.5     # percentage points: R reported only above this 2.5th percentile
+MIN_MODAL_FOR_DELTA_INTERVAL = 0.95   # the delta-method H interval needs this modal probability
 
 
 @dataclass(frozen=True)
@@ -42,6 +50,9 @@ class Interval:
 
 def summarize(estimate: float, replicates: np.ndarray, level: float = 0.95,
               min_defined: float = MIN_DEFINED) -> Interval:
+    check_level(level)
+    if not (isinstance(min_defined, (int, float)) and 0 <= min_defined <= 1):
+        raise ValueError(f"min_defined must lie in [0, 1], got {min_defined!r}")
     reps = np.asarray(replicates, dtype=float)
     ok = ~np.isnan(reps)
     frac_undef = 1.0 - float(ok.mean()) if reps.size else 1.0
@@ -66,6 +77,11 @@ class RulePair:
 
 @dataclass(frozen=True)
 class PairResult:
+    """One labeler pair. `h_delta_interval` is the registered secondary interval: given only
+    when the modal bootstrap orientation probability is >= 0.95 and 0 < m < E0.
+    `h_delta_interval_ungated` is the same computation without the probability gate, for
+    diagnostics only."""
+
     a: int
     b: int
     table: PairTable
@@ -73,6 +89,7 @@ class PairResult:
     c: Interval
     orientation_probabilities: dict[str, float]
     h_delta_interval: tuple[float, float] | None
+    h_delta_interval_ungated: tuple[float, float] | None
 
     @property
     def modal_orientation(self) -> str:
@@ -81,6 +98,11 @@ class PairResult:
 
 @dataclass(frozen=True)
 class RulePairResult:
+    """One rule pair. `r` is the registered R: reported (estimate and limits) only when the
+    lower percentile of the denominator exceeds 0.5 percentage points, otherwise
+    reported=False with NaN estimate and limits. `r_ungated` keeps the raw values for
+    diagnostics only."""
+
     spec: RulePair
     comparison: RuleComparison
     delta: Interval
@@ -88,6 +110,7 @@ class RulePairResult:
     r_reportable: bool
     denominator_p025: float
     s: Interval
+    r_ungated: Interval
 
 
 @dataclass(frozen=True)
@@ -103,6 +126,9 @@ def bootstrap(labels: np.typing.ArrayLike, pairs: Sequence[tuple[int, int]] = ()
               rng: np.random.Generator | int | None = None, level: float = 0.95) -> Resampled:
     """Participant bootstrap of every requested labeler pair and rule pair, from one set of
     resamples of the pattern counts."""
+    if isinstance(n_boot, bool) or not isinstance(n_boot, (int, np.integer)) or n_boot < 1:
+        raise ValueError(f"n_boot must be a positive integer, got {n_boot!r}")
+    check_level(level)
     x = as_label_matrix(labels)
     patterns, counts = np.unique(x, axis=0, return_counts=True)
     n = int(counts.sum())
@@ -129,6 +155,12 @@ def replicate_weights(labels: np.typing.ArrayLike, weights: np.typing.ArrayLike,
         raise ValueError("replicate weights must be a units x replicates matrix")
     if np.any(rep < 0) or not np.all(np.isfinite(rep)):
         raise ValueError("replicate weights must be finite and non-negative")
+    if rep.shape[1] == 0:
+        raise ValueError("no replicate columns")
+    zero = np.flatnonzero(rep.sum(axis=0) == 0)
+    if zero.size:
+        raise ValueError(f"replicate columns {zero.tolist()} sum to zero")
+    check_level(level)
 
     def cols() -> Iterator[np.ndarray]:
         for j in range(rep.shape[1]):
@@ -150,6 +182,9 @@ def _run(patterns: np.ndarray, counts: np.ndarray, replicate_counts: Iterator[np
     for a, b in pairs:
         if not (0 <= a < k and 0 <= b < k) or a == b:
             raise ValueError(f"pair ({a}, {b}) does not name two labelers")
+    for rp in rule_pairs:
+        check_columns(rp.rule_a, k)
+        check_columns(rp.rule_b, k)
     specs = [_resolve(rp) for rp in rule_pairs]
 
     g0 = _grid(patterns, counts)
@@ -184,18 +219,25 @@ def _run(patterns: np.ndarray, counts: np.ndarray, replicate_counts: Iterator[np
     for j, (a, b) in enumerate(pairs):
         t = point_pairs[j]
         probs = {o: float(np.mean(po[:, j] == o)) for o in (A_SMALLER, B_SMALLER, EQUAL)}
+        raw = h_delta_interval(t, level)
+        gated = raw if max(probs.values()) >= MIN_MODAL_FOR_DELTA_INTERVAL else None
         pair_results.append(PairResult(
             a=a, b=b, table=t, h=summarize(t.h, ph[:, j], level), c=summarize(t.c, pc[:, j], level),
-            orientation_probabilities=probs, h_delta_interval=h_delta_interval(t, level)))
+            orientation_probabilities=probs, h_delta_interval=gated,
+            h_delta_interval_ungated=raw))
     rule_results = []
     for j, rp in enumerate(specs):
         cmp = point_rules[j]
         den_ok = rden[:, j][~np.isnan(rden[:, j])]
         p025 = float(np.quantile(den_ok, (1.0 - level) / 2)) if den_ok.size else math.nan
+        reportable = bool(p025 > R_MIN_DENOMINATOR)
+        r_raw = summarize(cmp.r, rr[:, j], level)
+        r_reg = r_raw if reportable else Interval(math.nan, math.nan, math.nan,
+                                                  r_raw.fraction_undefined, False)
         rule_results.append(RulePairResult(
             spec=rp, comparison=cmp, delta=summarize(cmp.delta, rd[:, j], level),
-            r=summarize(cmp.r, rr[:, j], level), r_reportable=bool(p025 > R_MIN_DENOMINATOR),
-            denominator_p025=p025, s=summarize(cmp.s, rs[:, j], level)))
+            r=r_reg, r_reportable=reportable, denominator_p025=p025,
+            s=summarize(cmp.s, rs[:, j], level), r_ungated=r_raw))
     return Resampled(pairs=tuple(pair_results), rule_pairs=tuple(rule_results),
                      n_replicates=n_reps, method=method)
 
