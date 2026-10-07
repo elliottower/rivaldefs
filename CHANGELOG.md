@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.0 (unreleased)
+## 0.1.0 (date set at tagging)
 
 First version, implementing the indices of the criteria-direction preregistration (PREREG_v2,
 OSF https://osf.io/bpw6e/).
@@ -27,4 +27,9 @@ OSF https://osf.io/bpw6e/).
 - Randomized tests are reproducible from the seed printed on failure.
 - `Interval.sd`: the bootstrap (or replicate-weight) standard deviation over defined replicates.
 - `gram` and `grid_from_gram` are public, for grids from population cell probabilities.
-- H = κ/κmax checked exactly on five published tables pinned to committed source files.
+- H = κ/κmax is checked in exact rational arithmetic on six recorded cross-classifications from
+  four studies (Guerra, Habek, three Meagher tables, Mana), each pinned to a committed source
+  file. The registration names five tables; the Daghi table is omitted because the article
+  prints no cross-classification, a departure recorded in the implementation choices and the
+  registration Log.
+- Known limitations of this version are listed in the README.

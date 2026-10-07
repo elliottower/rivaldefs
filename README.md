@@ -17,6 +17,48 @@ disagreement between two rules with the disagreement among admissible implementa
 rule. It implements the indices of a frozen preregistration (criteria-direction, PREREG_v2,
 OSF https://osf.io/bpw6e/).
 
+## Terms
+
+The package was written before the manuscript settled its vocabulary. The code that ran the
+analyses is released unchanged, so the identifiers keep the earlier words.
+
+| package | manuscript | meaning |
+|---|---|---|
+| rule (`Rule`) | case definition | a family of admissible implementations |
+| variant | implementation | one way of coding a definition |
+| labeler | an implementation's classifications | one 0/1 column of the units × labelers matrix |
+| direction | orientation | which of two definitions has fewer positives: `a smaller`, `b smaller` or `equal` |
+| % inside, `C` | containment | share of the smaller positive set that is also positive under the other definition |
+| `H` | H | 1 − m/E0 = κ/κmax where defined |
+
+## Version and scope
+
+The analyses of the criteria-direction paper (simulation, MIMIC-IV, NHANES) ran on commit
+`76cd25a684614de93e6ae96b5b58527782825d64`. The SHA-256 of `src/rivaldefs`, taken as the
+analysis code takes it (sha256 over `name\0<sha256 of the file>\n` for each `*.py` file in
+name order), is `76c690d8363f95f569f6c9349cfa2296e1d70cd1d9801aff0bfac9921809df7b`, the value
+recorded in the result files. Version 0.1.0 has the same `src/`.
+
+`rivaldefs` is the statistical core. The simulation generators and the MIMIC-IV and NHANES
+classification pipelines are in the criteria-direction repository.
+
+## Known limitations in 0.1.0
+
+None of the three affects the recorded analyses; the two checks that establish this are in
+criteria-direction,
+`papers/paper1_bmc_mrm_rival_definitions/experiments/PREREG_v2_rival_definitions/results/rivaldefs_release_preflight_2026-10-07.json`.
+
+- `qualifying_cells` reads `orientation_error=None` as no adverse evidence, and `OCRecord`
+  does not require that `None` go with an undefined population orientation. A record with a
+  defined orientation and no orientation error would not block its cell. Pass `None` only for
+  pairs of equal population prevalence.
+- `ladder` orders weighted prevalences by their floating values and does not apply
+  `TIE_RTOL`. Two prevalences that tie under the pairwise rule but differ in the last bits can
+  be ordered either way, which can change the on-ladder share.
+- `gram` and `grid_from_gram` trust their input. `grid_from_gram` checks shape, symmetry and
+  N, and does not check that the matrix is a feasible Gram matrix of binary columns; `gram`
+  does not validate weights. `grid` validates before calling them.
+
 ## The problem, concretely
 
 N = 1,000, two pairs of rules:

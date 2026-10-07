@@ -15,17 +15,41 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      - name: Install build tools
-        run: pip install build
+      - name: Check that the tag is v + the package version
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          VERSION=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+          test "$TAG" = "v$VERSION"
 
-      - name: Build package
+      - name: Install build tools
+        run: pip install build twine
+
+      - name: Build wheel and sdist
         run: python -m build
+
+      - name: Check the distributions
+        run: twine check dist/*
+
+      # The smoke test runs from /tmp against the installed wheel. The test files put the
+      # checkout's src/ first on sys.path, so the suite after it tests the tagged source.
+      - name: Smoke-test the built wheel in a clean environment, then run the suite
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          python -m venv /tmp/wheel-env
+          /tmp/wheel-env/bin/pip install dist/*.whl pytest
+          cd /tmp
+          /tmp/wheel-env/bin/python -c "import rivaldefs as rd; assert 'v' + rd.__version__ == '$TAG', rd.__version__; t = rd.PairTable(n11=95, n10=5, n01=205, n00=695); assert t.orientation == 'a smaller' and abs(t.h - 13 / 14) < 1e-12 and abs(t.c - 0.95) < 1e-12"
+          /tmp/wheel-env/bin/python -m pytest "$GITHUB_WORKSPACE/tests" -q
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
