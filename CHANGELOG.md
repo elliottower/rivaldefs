@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.0 (date set at tagging)
+## 0.1.0 (2026-10-08)
 
 First version, implementing the indices of the criteria-direction preregistration (PREREG_v2,
 OSF https://osf.io/bpw6e/).

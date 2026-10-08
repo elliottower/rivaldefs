@@ -7,5 +7,6 @@ authors:
     orcid: "https://orcid.org/0000-0001-7004-8884"
 type: software
 version: 0.1.0
+date-released: "2026-10-08"
 license: MIT
 repository-code: "https://github.com/elliottower/rivaldefs"

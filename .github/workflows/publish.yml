@@ -44,6 +44,7 @@ jobs:
       - name: Smoke-test the built wheel in a clean environment, then run the suite
         env:
           TAG: ${{ github.event.release.tag_name }}
+          RIVALDEFS_TEST_SEED: "20261008"
         run: |
           python -m venv /tmp/wheel-env
           /tmp/wheel-env/bin/pip install dist/*.whl pytest

@@ -27,6 +27,12 @@ jobs:
       - name: Run tests
         run: python -m pytest tests/ -v --tb=short
 
+      # A second run at a fixed seed, so the run recorded for a release can be replayed.
+      - name: Run tests at the recorded seed
+        env:
+          RIVALDEFS_TEST_SEED: "20261008"
+        run: python -m pytest tests/ -q --tb=short
+
   minimum-dependencies:
     runs-on: ubuntu-latest
 
