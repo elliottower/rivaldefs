@@ -1,0 +1,51 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: pip install -e ".[test]"
+
+      - name: Run tests
+        run: python -m pytest tests/ -v --tb=short
+
+      # A second run at a fixed seed, so the run recorded for a release can be replayed.
+      - name: Run tests at the recorded seed
+        env:
+          RIVALDEFS_TEST_SEED: "20261008"
+        run: python -m pytest tests/ -q --tb=short
+
+  minimum-dependencies:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install the lowest declared NumPy
+        run: pip install "numpy==1.24.*" -e ".[test]"
+
+      - name: Run tests
+        run: python -m pytest tests/ -v --tb=short

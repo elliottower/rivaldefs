@@ -1,0 +1,11 @@
+rivaldefs test run 2026-09-30
+commit da6ef7f1ee0e727864ea85f8a27c8d4d7e535e4d
+tree   5de1e7c51ab0efd4ae5d3972df56375bd491e732
+working tree: clean (tracked); untracked: uv.lock
+
+pytest:
+98 passed in 13.87s
+ruff: All checks passed!
+mypy: Success: no issues found in 7 source files
+
+benchmark: results/benchmark_d2_2026-09-30.json, 2,000 resamples at 40,000 units x 188 labelers in 118.7 s, measured at 52cd58d; the later commits add no work to the resampling loop.

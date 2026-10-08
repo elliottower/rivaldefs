@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "rivaldefs: direction and implementation robustness of disagreement between rival binary labeling rules"
+authors:
+  - family-names: Tower
+    given-names: Elliot
+    orcid: "https://orcid.org/0000-0001-7004-8884"
+type: software
+version: 0.1.0
+date-released: "2026-10-08"
+license: MIT
+repository-code: "https://github.com/elliottower/rivaldefs"

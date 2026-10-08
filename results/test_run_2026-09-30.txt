@@ -1,0 +1,8 @@
+rivaldefs test run 2026-09-30, commit 2eb54b3 (+ working tree)
+................................................                         [100%]
+48 passed in 14.16s
+
+ruff:
+All checks passed!
+mypy:
+Success: no issues found in 7 source files
